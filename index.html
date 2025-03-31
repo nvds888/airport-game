@@ -46,13 +46,13 @@
             cursor: pointer;
             border: 2px solid #0f380f;
             border-radius: 0;
-            background: #808080; /* Changed from green to gray */
-            color: #ffffff; /* Changed text color to white for better contrast */
+            background: #f0f0f0; /* Natural light button color */
+            color: #000000; /* Black text for readability */
             text-transform: uppercase;
         }
         button:hover {
-            background: #a0a0a0; /* Changed hover color */
-            color: #0f380f;
+            background: #d0d0d0; /* Subtle hover effect */
+            color: #000000;
         }
         h1 {
             text-align: center;
@@ -83,7 +83,7 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+    <!-- Removed leaflet heat as we're not using heatmap anymore -->
     <script>
         // Pool of 100 airports
         const airports = [
@@ -210,12 +210,8 @@
             const shuffledAirports = shuffle([...airports]);
             const correctAirport = shuffledAirports[0];
             const heatPoints = [[correctAirport.lat, correctAirport.lng, 1]];
-            const heatLayer = L.heatLayer(heatPoints, {
-                radius: 25,
-                blur: 15,
-                maxZoom: 17,
-                gradient: { 0.4: '#666666', 0.65: '#999999', 1: '#cccccc' } // Changed from green to grayscale
-            }).addTo(map);
+            // Display a marker instead of a heatmap overlay to keep the natural satellite imagery visible
+            const marker = L.marker([correctAirport.lat, correctAirport.lng]).addTo(map);
 
             map.setView([correctAirport.lat, correctAirport.lng], 15);
 
@@ -232,16 +228,16 @@
             options.forEach(option => {
                 const button = document.createElement('button');
                 button.textContent = option.name;
-                button.onclick = () => checkAnswer(option === correctAirport, heatLayer);
+                button.onclick = () => checkAnswer(option === correctAirport, marker);
                 optionsDiv.appendChild(button);
             });
         }
 
         // Check the user's answer
-        function checkAnswer(isCorrect, heatLayer) {
+        function checkAnswer(isCorrect, marker) {
             if (isCorrect) {
                 alert("CORRECT! NEXT LEVEL!");
-                map.removeLayer(heatLayer);
+                map.removeLayer(marker);
                 startGame();
             } else {
                 alert("WRONG! GUESS AGAIN!");
