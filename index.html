@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Guess the airport from a satellite heatmap!">
+    <title>Airport Guessing Game</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Courier New', Courier, monospace;
+            background: #a9a9a9;
+            color: #0f380f;
+            overflow: hidden;
+        }
+        #game-container {
+            filter: url(#crt); /* CRT effect */
+            background: #9bbc0f;
+            padding: 10px;
+            border: 4px solid #0f380f;
+            width: 90vw;
+            max-width: 800px;
+            margin: 20px auto;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+        #map {
+            height: 60vh;
+            width: 100%;
+            border: 2px solid #0f380f;
+            image-rendering: pixelated; /* Retro pixel look */
+        }
+        #options {
+            text-align: center;
+            padding: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            font-size: 16px;
+            font-family: 'Courier New', Courier, monospace;
+            cursor: pointer;
+            border: 2px solid #0f380f;
+            border-radius: 0;
+            background: #306230;
+            color: #8bac0f;
+            text-transform: uppercase;
+        }
+        button:hover {
+            background: #8bac0f;
+            color: #306230;
+        }
+        h1 {
+            text-align: center;
+            padding: 10px;
+            font-size: 24px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        /* CRT Filter */
+        svg { display: none; }
+    </style>
+</head>
+<body>
+    <svg>
+        <defs>
+            <filter id="crt">
+                <feColorMatrix type="matrix" values="0.3 0 0 0 0  0 0.7 0 0 0  0 0 0.3 0 0  0 0 0 1 0" />
+                <feGaussianBlur stdDeviation="0.5" />
+            </filter>
+        </defs>
+    </svg>
+    <div id="game-container">
+        <h1>Airport Guess</h1>
+        <div id="map"></div>
+        <div id="options"></div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+    <script>
+        // Pool of 100 airports
+        const airports = [
+            { lat: 40.6413, lng: -73.7781, name: "John F. Kennedy Intl (JFK)" },
+            { lat: 33.9416, lng: -118.4085, name: "Los Angeles Intl (LAX)" },
+            { lat: 51.4700, lng: -0.4543, name: "London Heathrow (LHR)" },
+            { lat: 35.5533, lng: 139.7811, name: "Tokyo Haneda (HND)" },
+            { lat: 41.9786, lng: -87.9048, name: "Chicago O'Hare (ORD)" },
+            { lat: 25.7932, lng: -80.2906, name: "Miami Intl (MIA)" },
+            { lat: 48.3538, lng: 11.7861, name: "Munich Airport (MUC)" },
+            { lat: 52.3105, lng: 4.7683, name: "Amsterdam Schiphol (AMS)" },
+            { lat: 37.6189, lng: -122.3750, name: "San Francisco Intl (SFO)" },
+            { lat: 55.6179, lng: 37.2615, name: "Moscow Domodedovo (DME)" },
+            { lat: 32.8968, lng: -97.0380, name: "Dallas/Fort Worth (DFW)" },
+            { lat: 29.9844, lng: -95.3414, name: "Houston Bush (IAH)" },
+            { lat: 43.6777, lng: -79.6248, name: "Toronto Pearson (YYZ)" },
+            { lat: 39.8584, lng: -104.6670, name: "Denver Intl (DEN)" },
+            { lat: 33.6367, lng: 117.5812, name: "John Wayne Airport (SNA)" },
+            { lat: 34.7294, lng: 135.5000, name: "Osaka Kansai (KIX)" },
+            { lat: 22.3080, lng: 113.9185, name: "Hong Kong Intl (HKG)" },
+            { lat: 1.3644, lng: 103.9915, name: "Singapore Changi (SIN)" },
+            { lat: 40.0801, lng: 116.5845, name: "Beijing Capital (PEK)" },
+            { lat: -33.9461, lng: 151.1770, name: "Sydney Kingsford Smith (SYD)" },
+            { lat: 49.0097, lng: 2.5479, name: "Paris Charles de Gaulle (CDG)" },
+            { lat: 28.4312, lng: -81.3081, name: "Orlando Intl (MCO)" },
+            { lat: 47.4490, lng: -122.3118, name: "Seattle-Tacoma Intl (SEA)" },
+            { lat: 36.0801, lng: -115.1522, name: "Harry Reid Intl (LAS)" },
+            { lat: 38.9475, lng: -77.4590, name: "Washington Dulles (IAD)" },
+            { lat: 42.2121, lng: -83.3534, name: "Detroit Metro (DTW)" },
+            { lat: 35.2137, lng: -80.9491, name: "Charlotte Douglas (CLT)" },
+            { lat: 33.4343, lng: -112.0116, name: "Phoenix Sky Harbor (PHX)" },
+            { lat: 44.8810, lng: -93.2218, name: "Minneapolis-Saint Paul (MSP)" },
+            { lat: 26.0726, lng: -80.1527, name: "Fort Lauderdale Intl (FLL)" },
+            { lat: 39.1754, lng: -76.6683, name: "Baltimore-Washington (BWI)" },
+            { lat: 32.7336, lng: -117.1897, name: "San Diego Intl (SAN)" },
+            { lat: 27.9755, lng: -82.5333, name: "Tampa Intl (TPA)" },
+            { lat: 45.5887, lng: -122.5975, name: "Portland Intl (PDX)" },
+            { lat: 38.8521, lng: -77.0377, name: "Ronald Reagan National (DCA)" },
+            { lat: 42.9472, lng: -87.8966, name: "Milwaukee Mitchell (MKE)" },
+            { lat: 39.7173, lng: -86.2944, name: "Indianapolis Intl (IND)" },
+            { lat: 35.8776, lng: -78.7875, name: "Raleigh-Durham (RDU)" },
+            { lat: 36.8946, lng: -76.2012, name: "Norfolk Intl (ORF)" },
+            { lat: 30.1945, lng: -97.6699, name: "Austin-Bergstrom (AUS)" },
+            { lat: 29.5337, lng: -98.4698, name: "San Antonio Intl (SAT)" },
+            { lat: 36.1245, lng: -86.6782, name: "Nashville Intl (BNA)" },
+            { lat: 39.9980, lng: -82.8919, name: "John Glenn Columbus (CMH)" },
+            { lat: 40.7772, lng: -73.8726, name: "LaGuardia Airport (LGA)" },
+            { lat: 37.5052, lng: -77.3197, name: "Richmond Intl (RIC)" },
+            { lat: 41.4094, lng: -81.8547, name: "Cleveland Hopkins (CLE)" },
+            { lat: 38.7487, lng: -90.3700, name: "St. Louis Lambert (STL)" },
+            { lat: 40.6925, lng: -74.1686, name: "Newark Liberty (EWR)" },
+            { lat: 41.7850, lng: -87.7524, name: "Chicago Midway (MDW)" },
+            { lat: 42.3643, lng: -71.0052, name: "Boston Logan (BOS)" },
+            { lat: 37.3626, lng: -121.9290, name: "San Jose Intl (SJC)" },
+            { lat: 32.1161, lng: -110.9410, name: "Tucson Intl (TUS)" },
+            { lat: 35.0424, lng: -89.9767, name: "Memphis Intl (MEM)" },
+            { lat: 39.2976, lng: -94.7139, name: "Kansas City Intl (MCI)" },
+            { lat: 33.8297, lng: -116.5063, name: "Palm Springs Intl (PSP)" },
+            { lat: 43.1189, lng: -77.6724, name: "Rochester Intl (ROC)" },
+            { lat: 36.1984, lng: -95.8882, name: "Tulsa Intl (TUL)" },
+            { lat: 35.3931, lng: -97.6007, name: "Will Rogers World (OKC)" },
+            { lat: 30.4941, lng: -91.1496, name: "Baton Rouge Metro (BTR)" },
+            { lat: 32.4113, lng: -99.6819, name: "Abilene Regional (ABI)" },
+            { lat: 64.8151, lng: -147.8563, name: "Fairbanks Intl (FAI)" },
+            { lat: 61.1743, lng: -149.9962, name: "Ted Stevens Anchorage (ANC)" },
+            { lat: 21.3187, lng: -157.9224, name: "Daniel K. Inouye Intl (HNL)" },
+            { lat: 19.7388, lng: -156.0456, name: "Kona Intl (KOA)" },
+            { lat: 20.8986, lng: -156.4305, name: "Kahului Airport (OGG)" },
+            { lat: -8.5586, lng: 115.1672, name: "Ngurah Rai Intl (DPS)" },
+            { lat: 50.9014, lng: 4.4844, name: "Brussels Airport (BRU)" },
+            { lat: 55.9533, lng: -3.3725, name: "Edinburgh Airport (EDI)" },
+            { lat: 53.3537, lng: -2.2750, name: "Manchester Airport (MAN)" },
+            { lat: 41.1389, lng: -8.6001, name: "Porto Airport (OPO)" },
+            { lat: 38.7743, lng: -9.1342, name: "Lisbon Airport (LIS)" },
+            { lat: 40.4167, lng: -3.7026, name: "Madrid-Barajas (MAD)" },
+            { lat: 41.2971, lng: 2.0785, name: "Barcelona-El Prat (BCN)" },
+            { lat: 45.4647, lng: 9.2793, name: "Milan Malpensa (MXP)" },
+            { lat: 43.6584, lng: 7.2159, name: "Nice Côte d'Azur (NCE)" },
+            { lat: 60.3172, lng: 24.9633, name: "Helsinki-Vantaa (HEL)" },
+            { lat: 59.6519, lng: 17.9186, name: "Stockholm Arlanda (ARN)" },
+            { lat: 55.6371, lng: 12.6508, name: "Copenhagen Kastrup (CPH)" },
+            { lat: 47.4647, lng: 8.5492, name: "Zurich Airport (ZRH)" },
+            { lat: 46.2381, lng: 6.1089, name: "Geneva Airport (GVA)" },
+            { lat: 48.1103, lng: 16.5697, name: "Vienna Intl (VIE)" },
+            { lat: 50.0331, lng: 8.5705, name: "Frankfurt Main (FRA)" },
+            { lat: 52.5200, lng: 13.4050, name: "Berlin Brandenburg (BER)" },
+            { lat: -23.4356, lng: -46.4731, name: "São Paulo-Guarulhos (GRU)" },
+            { lat: -22.8120, lng: -43.2506, name: "Rio de Janeiro-Galeão (GIG)" },
+            { lat: -34.5592, lng: -58.4157, name: "Buenos Aires-Ezeiza (EZE)" },
+            { lat: -12.0219, lng: -77.1143, name: "Lima Jorge Chávez (LIM)" },
+            { lat: 4.7016, lng: -74.1469, name: "Bogotá El Dorado (BOG)" },
+            { lat: 19.4363, lng: -99.0721, name: "Mexico City Intl (MEX)" },
+            { lat: -33.3930, lng: -70.7858, name: "Santiago Arturo Merino (SCL)" },
+            { lat: 18.5037, lng: -69.9901, name: "Santo Domingo Las Américas (SDQ)" },
+            { lat: 25.2528, lng: 55.3644, name: "Dubai Intl (DXB)" },
+            { lat: 24.4539, lng: 54.3773, name: "Abu Dhabi Intl (AUH)" },
+            { lat: 25.0746, lng: 55.1350, name: "Sharjah Intl (SHJ)" },
+            { lat: 26.2708, lng: 50.6378, name: "Bahrain Intl (BAH)" },
+            { lat: 21.6794, lng: 39.1565, name: "Jeddah King Abdulaziz (JED)" },
+            { lat: 33.5796, lng: 36.5146, name: "Damascus Intl (DAM)" },
+            { lat: 30.1219, lng: 31.4056, name: "Cairo Intl (CAI)" },
+            { lat: -26.1337, lng: 28.2423, name: "Johannesburg OR Tambo (JNB)" },
+            { lat: -1.3192, lng: 36.9278, name: "Nairobi Jomo Kenyatta (NBO)" }
+        ];
+
+        // Initialize the map
+        const map = L.map('map', { zoomControl: false }).setView([0, 0], 2);
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: '© <a href="https://www.esri.com/">Esri</a>',
+            maxZoom: 19
+        }).addTo(map);
+
+        // Fisher-Yates shuffle for better randomness
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        // Function to start the game
+        function startGame() {
+            const shuffledAirports = shuffle([...airports]);
+            const correctAirport = shuffledAirports[0];
+            const heatPoints = [[correctAirport.lat, correctAirport.lng, 1]];
+            const heatLayer = L.heatLayer(heatPoints, {
+                radius: 25,
+                blur: 15,
+                maxZoom: 17,
+                gradient: { 0.4: '#306230', 0.65: '#8bac0f', 1: '#9bbc0f' } // Gameboy colors
+            }).addTo(map);
+
+            map.setView([correctAirport.lat, correctAirport.lng], 15);
+
+            const options = [correctAirport];
+            const otherAirports = shuffledAirports.slice(1);
+            while (options.length < 3) {
+                const randomAirport = otherAirports[Math.floor(Math.random() * otherAirports.length)];
+                if (!options.includes(randomAirport)) options.push(randomAirport);
+            }
+            shuffle(options);
+
+            const optionsDiv = document.getElementById('options');
+            optionsDiv.innerHTML = '';
+            options.forEach(option => {
+                const button = document.createElement('button');
+                button.textContent = option.name;
+                button.onclick = () => checkAnswer(option === correctAirport, heatLayer);
+                optionsDiv.appendChild(button);
+            });
+        }
+
+        // Check the user's answer
+        function checkAnswer(isCorrect, heatLayer) {
+            if (isCorrect) {
+                alert("CORRECT! NEXT LEVEL!");
+                map.removeLayer(heatLayer);
+                startGame();
+            } else {
+                alert("WRONG! GUESS AGAIN!");
+            }
+        }
+
+        // Start the game
+        startGame();
+    </script>
+</body>
+</html>
