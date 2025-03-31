@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Guess the airport from a satellite heatmap!">
+    <meta name="description" content="Guess the airport from a satellite image!">
     <title>Airport Guessing Game</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
@@ -12,7 +12,9 @@
             font-family: 'Courier New', Courier, monospace;
             background: #d0d0d0;
             color: #333333;
-            overflow: hidden;
+            overflow-y: auto; /* Enable vertical scrolling */
+            min-height: 100vh;
+            padding-bottom: 20px; /* Add padding at bottom for mobile */
         }
         #game-container {
             width: 90vw;
@@ -24,11 +26,10 @@
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
         }
         #map {
-            height: 60vh;
+            height: 50vh; /* Slightly shorter to ensure buttons are visible */
             width: 100%;
             border: 2px solid #333333;
             background: #000;
-            image-rendering: auto;
         }
         #options {
             text-align: center;
@@ -48,6 +49,8 @@
             background: #ffffff;
             color: #000000;
             text-transform: uppercase;
+            width: 100%; /* Make buttons full width */
+            max-width: 300px; /* But limit their width */
         }
         button:hover {
             background: #f0f0f0;
@@ -61,6 +64,57 @@
             letter-spacing: 2px;
             color: #333333;
             background: #f5f5f5;
+            margin-top: 0;
+        }
+        #score-container {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            background: #e0e0e0;
+            border: 2px solid #333333;
+            margin-top: 10px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .score-label {
+            flex: 1;
+            text-align: left;
+        }
+        .score-value {
+            flex: 1;
+            text-align: right;
+        }
+        .feedback-icon {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+            font-size: 100px;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+            animation: fadeOut 1.5s forwards;
+            pointer-events: none;
+        }
+        @keyframes fadeOut {
+            0% { opacity: 1; }
+            70% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+        /* Responsive adjustments for small screens */
+        @media (max-width: 600px) {
+            #game-container {
+                width: 95vw;
+                padding: 10px;
+                margin: 10px auto;
+            }
+            button {
+                padding: 12px 10px;
+                margin: 5px 0;
+                font-size: 14px;
+            }
+            h1 {
+                font-size: 20px;
+            }
         }
     </style>
 </head>
@@ -68,6 +122,10 @@
     <div id="game-container">
         <h1>Airport Guess</h1>
         <div id="map"></div>
+        <div id="score-container">
+            <div class="score-label">SCORE:</div>
+            <div class="score-value" id="score-display">0</div>
+        </div>
         <div id="options"></div>
     </div>
 
@@ -177,6 +235,9 @@
             { lat: -1.3192, lng: 36.9278, name: "Nairobi Jomo Kenyatta (NBO)" }
         ];
 
+        // Score tracking
+        let score = 0;
+        
         // Initialize the map
         const map = L.map('map', { zoomControl: false }).setView([0, 0], 2);
         
@@ -193,6 +254,25 @@
                 [array[i], array[j]] = [array[j], array[i]];
             }
             return array;
+        }
+
+        // Show feedback icon (✓ or ✗)
+        function showFeedback(isCorrect) {
+            const feedbackDiv = document.createElement('div');
+            feedbackDiv.className = 'feedback-icon';
+            feedbackDiv.innerText = isCorrect ? '✓' : '✗';
+            feedbackDiv.style.color = isCorrect ? '#00cc00' : '#cc0000';
+            document.body.appendChild(feedbackDiv);
+            
+            // Remove the element after animation completes
+            setTimeout(() => {
+                feedbackDiv.remove();
+            }, 1500);
+        }
+
+        // Update score display
+        function updateScore() {
+            document.getElementById('score-display').innerText = score;
         }
 
         // Function to start the game
@@ -226,14 +306,26 @@
         // Check the user's answer
         function checkAnswer(isCorrect, marker) {
             if (isCorrect) {
-                alert("CORRECT! NEXT LEVEL!");
-                map.removeLayer(marker);
-                startGame();
+                score += 10;
+                updateScore();
+                showFeedback(true);
+                
+                // Allow time for the feedback to show before moving to next level
+                setTimeout(() => {
+                    map.removeLayer(marker);
+                    startGame();
+                }, 1000);
             } else {
-                alert("WRONG! GUESS AGAIN!");
+                // Subtract points for wrong answer, but don't go below 0
+                score = Math.max(0, score - 5);
+                updateScore();
+                showFeedback(false);
             }
         }
 
+        // Initialize score display
+        updateScore();
+        
         // Start the game
         startGame();
     </script>
